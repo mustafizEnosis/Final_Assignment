@@ -6,12 +6,13 @@ using System.Threading.Tasks;
 using System.Linq;
 using System.Text.Json;
 using System.IO;
+using System.Diagnostics;
 
 namespace BestSeller
 {
-    class BookWorker
+    class BookWorker : Iworker
     {
-        
+
         public int max_book_length { get; set; } = int.MinValue;
         public int max_author_length { get; set; } = int.MinValue;
 
@@ -19,23 +20,34 @@ namespace BestSeller
 
         public List<Book> booksList = new List<Book>();
 
-        public async Task GetDataAsync(List<string> dates)
+        public async Task<List<string>> GetDataAsync(List<string> dates)
         {
-            var stringTask = from date in dates
-                             select StaticInfo.client.GetStringAsync($"https://api.nytimes.com/svc/books/v3/lists.json?api-key={StaticInfo.API_KEY}&published-date={date}&list={StaticInfo.listType}").ContinueWith(t=> { processData(t.Result); });
+            List<string> results = new List<string>();
 
             try
             {
+                var stringTask = from date in dates
+                                 select StaticInfo.client.GetStringAsync($"https://api.nytimes.com/svc/books/v3/lists.json?api-key={StaticInfo.API_KEY}&published-date={date}&list={StaticInfo.listType}");
+
                 //Stopwatch sw = new Stopwatch();
                 //sw.Start();
-               
-                Console.WriteLine("In func, no thread has been launched. (main thread={0})",
-                 Thread.CurrentThread.ManagedThreadId);
+
+                //Console.WriteLine("In func, no thread has been launched. (main thread={0})",
+                // Thread.CurrentThread.ManagedThreadId);
 
                 await Task.WhenAll(stringTask);
 
-                Console.WriteLine("In func, thread has been launched. (main thread={0})",
-                 Thread.CurrentThread.ManagedThreadId);
+                //Console.WriteLine("In func, thread has been launched. (main thread={0})",
+                // Thread.CurrentThread.ManagedThreadId);
+
+                //sw.Stop();
+
+                //Console.WriteLine(sw.ElapsedMilliseconds);
+
+                foreach (var task in stringTask)
+                {
+                    results.Add(((Task<string>)task).Result);
+                }
 
 
                 /* Try to ensure all the result is obtained. If any result is not obtained then mention reason for that */
@@ -50,27 +62,45 @@ namespace BestSeller
                 //return stringTask;
             }
 
+            return results;
+
             //return stringTask.ToList();
         }
 
-        //public async void runDataProcessingTasksAsync(IAsyncEnumerable<Task<String>> stringTask)
-        //{
-        //    List<Task> processingTasks = new List<Task>();
+        public async Task runDataProcessingTasksAsync(List<String> stringTask)
+        {
+            List<Task> processingTasks = new List<Task>();
 
-        //    await foreach(Task T in stringTask)
-        //    {
-        //        await processDataAsync(T.Result)
-        //    }
-            
-        //    //using var processingtasks = from task in stringTask select processDataAsync(task.Result);
-        //}
+            foreach (var task in stringTask)
+            {
+                processingTasks.Add(processData(task));
+            }
 
-        public void processData(string inputJson)
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            Console.WriteLine("In func, no thread has been launched. (main thread={0})",
+             Thread.CurrentThread.ManagedThreadId);
+
+            await Task.WhenAll(processingTasks);
+
+            Console.WriteLine("In func, thread has been launched. (main thread={0})",
+             Thread.CurrentThread.ManagedThreadId);
+
+            sw.Stop();
+
+            Console.WriteLine("{0} elapsed time",
+            sw.ElapsedMilliseconds);
+
+            //using var processingtasks = from task in stringTask select processDataAsync(task.Result);
+        }
+
+        public async Task processData(string inputJson)
         {
             try
             {
-                //await Task.Run(() =>
-                //{
+                await Task.Run(() =>
+                {
                     JsonDocument jdoc = JsonDocument.Parse(inputJson);
                     JsonElement root = jdoc.RootElement;
                     JsonElement resultsElement = root.GetProperty("results");
@@ -93,12 +123,12 @@ namespace BestSeller
                             booksList.Add(new Book(title.GetString(), author.GetString(), dateElement.GetString()));
                         }
 
-                    //Console.WriteLine(title.GetString());
+                        //Console.WriteLine(title.GetString());
                     }
-                //});
+                });
             }
-            catch(Exception e) { Console.WriteLine(e.Message.ToString()); }
-            
+            catch (Exception e) { Console.WriteLine(e.Message.ToString()); }
+
         }
 
         public async Task<string> storeDataInFileAsync()

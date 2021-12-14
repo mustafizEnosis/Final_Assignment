@@ -70,7 +70,16 @@ namespace BestSeller
                 sw.Start();
                 Console.WriteLine("no thread has been launched. (main thread={0})",
                  Thread.CurrentThread.ManagedThreadId);
-                await bw.GetDataAsync(inputDates);
+                var tasks = await bw.GetDataAsync(inputDates);
+                Console.WriteLine("thread has been launched. (main thread={0})",
+                 Thread.CurrentThread.ManagedThreadId);
+                sw.Stop();
+                //Console.WriteLine("{0} {1}", i + 1, sw.ElapsedMilliseconds);
+
+                sw.Start();
+                Console.WriteLine("no thread has been launched. (main thread={0})",
+                 Thread.CurrentThread.ManagedThreadId);
+                await bw.runDataProcessingTasksAsync(tasks);
                 Console.WriteLine("thread has been launched. (main thread={0})",
                  Thread.CurrentThread.ManagedThreadId);
                 sw.Stop();
@@ -97,7 +106,7 @@ namespace BestSeller
                 }
                 i += 1;
                 if (i == 9) break;
-                
+
                 inputDates.Clear();
 
 
@@ -111,17 +120,19 @@ namespace BestSeller
 
                     if (input.ToLower() == "r")
                     {
-                        ReviewWorker rw = new ReviewWorker();
                         Console.WriteLine("Please enter 1 for book review and 2 for author review");
 
                         string option = Console.ReadLine().Trim(' ');
+                        List<string> inputs = new List<string>();
 
                         if (option == "1")
                         {
+                            ReviewWorker rw = new ReviewWorker(Review.Type.T_BOOK);
                             Console.WriteLine("Please enter the book name");
-                            string bookName = Console.ReadLine();
+                            inputs.Add(Console.ReadLine());
                             Console.WriteLine("Please wait, fetching data....");
-                            await rw.GetDataAsync(Review.Type.T_BOOK, bookName);
+                            var results = await rw.GetDataAsync(inputs);
+                            await rw.runDataProcessingTasksAsync(results);
                             if (rw.reviewsList.Count == 0)
                                 Console.WriteLine("No review found");
                             else
@@ -135,10 +146,12 @@ namespace BestSeller
                         }
                         else if (option == "2")
                         {
+                            ReviewWorker rw = new ReviewWorker(Review.Type.T_AUTHOR);
                             Console.WriteLine("Please enter the author name");
-                            string authorName = Console.ReadLine();
+                            inputs.Add(Console.ReadLine());
                             Console.WriteLine("Please wait, fetching data....");
-                            await rw.GetDataAsync(Review.Type.T_AUTHOR, authorName);
+                            var results = await rw.GetDataAsync(inputs);
+                            await rw.runDataProcessingTasksAsync(results);
                             if (rw.reviewsList.Count == 0)
                             {
                                 Console.WriteLine("No review found");
@@ -156,6 +169,8 @@ namespace BestSeller
                         {
                             Console.WriteLine("Invalid Input!!!");
                         }
+
+                        inputs.Clear();
                     }
                     else if (input.ToLower() == "q")
                     {
