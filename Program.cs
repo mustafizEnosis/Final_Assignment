@@ -1,204 +1,35 @@
 ﻿using System;
-using System.Net.Http;
 using System.Threading.Tasks;
-using System.Text.Json;
+using System.Threading;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
-using System.Linq;
 using System.IO;
 using System.Diagnostics;
-using BestSellerHelper;
+using System.Text.RegularExpressions;
 
 namespace BestSeller
 {
     class Program
     {
-        const string API_KEY = "rMPW0Jpp7ZEzCD5NBNNAaRInu8ToCBRy";
-        const string listType = "hardcover-fiction";
-        private static readonly HttpClient client = new HttpClient();
-
-        struct st
+        private static Random gen = new Random();
+        private static DateTime RandomDay()
         {
-            public int max_book_length;
-            public int max_author_length;
-        };
-
-        static st maxInfo;
-
-        private static async Task<List<Review>> GetReviews(Review.Type T, string val)
-        {
-            List<Review> reviewsList = new List<Review>();
-            string url = $"https://api.nytimes.com/svc/books/v3/reviews.json?api-key={API_KEY}";
-            if (T == Review.Type.T_BOOK)
-                url += $"&title={val}";
-            else if(T == Review.Type.T_AUTHOR)
-                url += $"&author={val}";
-            try
-            {
-                var stringTask = client.GetStringAsync(url);
-
-                var reviews = await stringTask;
-
-                return await Task.Run(() => {
-                    JsonDocument jdoc = JsonDocument.Parse(reviews);
-                    JsonElement root = jdoc.RootElement;
-                    JsonElement resultsElement = root.GetProperty("results");
-
-                    int count = resultsElement.GetArrayLength();
-                    Console.WriteLine(count);
-
-                    foreach (JsonElement result in resultsElement.EnumerateArray())
-                    {
-                        JsonElement summaryElement = result.GetProperty("summary");
-                        reviewsList.Add(new Review(T, summaryElement.GetString()));
-                    }
-                    return reviewsList;
-                });
-            }
-            catch(Exception e)
-            {
-                Console.WriteLine(e.Message.ToString());
-            }
-
-            return reviewsList;
-
-        }
-        private static async Task<List<Book>> GetBestSellerBooks(List<string> dates)
-        {
-            List<Book> booksList = new List<Book>();
-            try
-            {
-                var stringTask = from date in dates select client.GetStringAsync($"https://api.nytimes.com/svc/books/v3/lists.json?api-key={API_KEY}&published-date={date}&list={listType}");
-
-
-                foreach (var task in stringTask)
-                {
-                    await task.ContinueWith( t => {
-                        JsonDocument jdoc = JsonDocument.Parse(t.Result);
-                        JsonElement root = jdoc.RootElement;
-                        JsonElement resultsElement = root.GetProperty("results");
-
-                        int count = resultsElement.GetArrayLength();
-                        Console.WriteLine(count);
-
-                        foreach (JsonElement result in resultsElement.EnumerateArray())
-                        {
-                            JsonElement dateElement = result.GetProperty("bestsellers_date");
-                            JsonElement booksElement = result.GetProperty("book_details");
-                            foreach (JsonElement book in booksElement.EnumerateArray())
-                            {
-                                JsonElement title = book.GetProperty("title");
-                                JsonElement author = book.GetProperty("author");
-
-                                maxInfo.max_book_length = Math.Max(maxInfo.max_book_length, title.GetString().Length);
-                                maxInfo.max_author_length = Math.Max(maxInfo.max_author_length, author.GetString().Length);
-
-                                booksList.Add(new Book(title.GetString(), author.GetString(), dateElement.GetString()));
-                            }
-
-                            //Console.WriteLine(title.GetString());
-                        }
-                    }).ConfigureAwait(false);
-                }
-                
-                await Task.WhenAll(stringTask);
-               
-
-                /* Try to ensure all the result is obtained. If any result is not obtained then mention reason for that */
-
-                return booksList;
-
-                //Console.Write(books);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message.ToString());
-
-                return booksList;
-            }
-        }
-
-        private static async Task<string> storeData(List<Book> books)
-        {
-            return await Task.Run(() => {
-
-                string filename = "output.txt";
-
-                try
-                {
-
-                    StreamWriter sw = new StreamWriter(filename);
-
-                    sw.WriteLine("Book".PadRight(maxInfo.max_book_length + 1) + "Author".PadRight(maxInfo.max_author_length + 1) + "Date");
-                    sw.WriteLine("____".PadRight(maxInfo.max_book_length + 1) + "____".PadRight(maxInfo.max_author_length + 1) + "_____");
-
-                    for (int i = 0; i < books.Count; i++)
-                    {
-                        sw.WriteLine(books[i].title.PadRight(maxInfo.max_book_length + 1) + books[i].author.PadRight(maxInfo.max_author_length + 1) + books[i].date);
-                    }
-                    sw.Close();
-                }
-                catch(Exception e)
-                {
-                    Console.WriteLine(e.Message.ToString());
-                }
-
-                return filename;
-            });
-        }
-
-        private static async Task<string> storeReviews(List<Review> reviews)
-        {
-            return await Task.Run(() => {
-
-                string filename = "review.txt";
-
-                try 
-                { 
-
-                    StreamWriter sw = new StreamWriter(filename);
-
-                    for (int i = 0; i < reviews.Count; i++)
-                    {
-                        sw.WriteLine("Review {0}", i+1);
-                        sw.WriteLine("__________");
-                        sw.WriteLine(reviews[i].review);
-                    }
-                    sw.Close();
-                }
-                catch(Exception e)
-                {
-                    Console.WriteLine(e.Message.ToString());
-                }
-
-
-                return filename;
-            });
-        }
-
-        private static void openEditor(string filename)
-        {
-            try
-            {
-                new Process
-                {
-                    StartInfo = new ProcessStartInfo(filename)
-                    {
-                        UseShellExecute = true
-                    }
-                }.Start();
-            }
-            catch(Exception e)
-            {
-                Console.WriteLine(e.Message.ToString());
-            }
+            DateTime start = new DateTime(2010, 1, 1);
+            int range = (DateTime.Today - start).Days;
+            return start.AddDays(gen.Next(range));
         }
         static async Task Main(string[] args)
         {
             Console.WriteLine("*****Welcome to the bestseller application*****");
             List<string> inputDates = new List<string>();
-            while(true)
+            int i = 0;
+            StreamReader reader = new StreamReader("input.txt");
+            //client.DefaultRequestHeaders.Add("Retry-After", "120");
+            //for (int k = 1; k <= 10; k++)
+            //    inputDates.Add(RandomDay().Date.ToString("yyyy-MM-dd"));
+
+            while (true)
             {
+
                 Console.WriteLine("Please input the number of days of data you want.");
                 int dateCnt = -1;
                 try
@@ -211,9 +42,12 @@ namespace BestSeller
                     Console.WriteLine($"Invalid input. Please enter integer without any leading or trailing spaces.");
                 }
 
+                //for (int k = 1; k <= dateCnt; k++)
+                //    inputDates.Add(reader.ReadLine());
+
                 Console.WriteLine("Please enter the dates in this (YYYY-MM-DD) format one by one without any leading or trailing spaces.");
 
-                while (dateCnt>0)
+                while (dateCnt > 0)
                 {
                     try
                     {
@@ -223,31 +57,56 @@ namespace BestSeller
                         else throw new Exception("Invalid Input!!!");
                         dateCnt--;
                     }
-                    catch(Exception e)
+                    catch (Exception e)
                     {
                         Console.WriteLine(e.Message.ToString());
                     }
                 }
 
-                maxInfo.max_book_length = int.MinValue;
-                maxInfo.max_author_length = int.MinValue;
+                BookWorker bw = new BookWorker();
 
                 Console.WriteLine("Please wait, fetching data....");
-                var list = await GetBestSellerBooks(inputDates);
-                if (list.Count == 0)
+                Stopwatch sw = new Stopwatch();
+                sw.Start();
+                Console.WriteLine("no thread has been launched. (main thread={0})",
+                 Thread.CurrentThread.ManagedThreadId);
+                var tasks = await bw.GetDataAsync(inputDates);
+                Console.WriteLine("thread has been launched. (main thread={0})",
+                 Thread.CurrentThread.ManagedThreadId);
+                sw.Stop();
+                //Console.WriteLine("{0} {1}", i + 1, sw.ElapsedMilliseconds);
+
+                sw.Start();
+                Console.WriteLine("no thread has been launched. (main thread={0})",
+                 Thread.CurrentThread.ManagedThreadId);
+                await bw.runDataProcessingTasksAsync(tasks);
+                Console.WriteLine("thread has been launched. (main thread={0})",
+                 Thread.CurrentThread.ManagedThreadId);
+                sw.Stop();
+                Console.WriteLine("{0} {1}", i + 1, sw.ElapsedMilliseconds);
+
+
+                //System.Threading.Thread.Sleep(10000);
+
+                if (bw.booksList.Count == 0)
                     Console.WriteLine("No data found");
                 else
                 {
-                    Console.WriteLine("Total {0} data fetched.", list.Count);
+                    Console.WriteLine("Total {0} data fetched.", bw.booksList.Count);
                     //for (int i = 0; i < list.Count; i++)
                     //    Console.WriteLine("Id = {0} \t\t Info = {1}", i, list[i].title);
                     Console.WriteLine("Please wait, preparing data....");
-                    var filename = await storeData(list);
+                    var filename = await bw.storeDataInFileAsync();
                     Console.WriteLine("Displaying data in default editor");
 
-                    openEditor(filename);
+                    Display disp = new Display();
+
+                    disp.openEditor(filename);
 
                 }
+                i += 1;
+                if (i == 9) break;
+
                 inputDates.Clear();
 
 
@@ -264,45 +123,54 @@ namespace BestSeller
                         Console.WriteLine("Please enter 1 for book review and 2 for author review");
 
                         string option = Console.ReadLine().Trim(' ');
+                        List<string> inputs = new List<string>();
 
-                        if(option == "1")
+                        if (option == "1")
                         {
+                            ReviewWorker rw = new ReviewWorker(Review.Type.T_BOOK);
                             Console.WriteLine("Please enter the book name");
-                            string bookName = Console.ReadLine();
+                            inputs.Add(Console.ReadLine());
                             Console.WriteLine("Please wait, fetching data....");
-                            var reviewList = await GetReviews(Review.Type.T_BOOK, bookName);
-                            if (reviewList.Count == 0)
+                            var results = await rw.GetDataAsync(inputs);
+                            await rw.runDataProcessingTasksAsync(results);
+                            if (rw.reviewsList.Count == 0)
                                 Console.WriteLine("No review found");
                             else
                             {
                                 Console.WriteLine("Please wait, preparing data....");
-                                string filename = await storeReviews(reviewList);
-                                openEditor(filename);
+                                string filename = await rw.storeDataInFileAsync();
+                                Display disp = new Display();
+                                disp.openEditor(filename);
                             }
-                           
+
                         }
-                        else if(option == "2")
+                        else if (option == "2")
                         {
+                            ReviewWorker rw = new ReviewWorker(Review.Type.T_AUTHOR);
                             Console.WriteLine("Please enter the author name");
-                            string authorName = Console.ReadLine();
+                            inputs.Add(Console.ReadLine());
                             Console.WriteLine("Please wait, fetching data....");
-                            var reviewList = await GetReviews(Review.Type.T_AUTHOR, authorName);
-                            if(reviewList.Count == 0)
+                            var results = await rw.GetDataAsync(inputs);
+                            await rw.runDataProcessingTasksAsync(results);
+                            if (rw.reviewsList.Count == 0)
                             {
                                 Console.WriteLine("No review found");
                             }
                             else
                             {
                                 Console.WriteLine("Please wait, preparing data....");
-                                string filename = await storeReviews(reviewList);
-                                openEditor(filename);
+                                string filename = await rw.storeDataInFileAsync();
+                                Display disp = new Display();
+                                disp.openEditor(filename);
                             }
-                            
+
                         }
                         else
                         {
                             Console.WriteLine("Invalid Input!!!");
                         }
+
+                        inputs.Clear();
                     }
                     else if (input.ToLower() == "q")
                     {
@@ -318,6 +186,8 @@ namespace BestSeller
                     }
                 }
             }
+
+            //writer.Close();
 
         }
     }

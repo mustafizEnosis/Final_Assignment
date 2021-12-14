@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json.Serialization;
 
-namespace BestSellerHelper
+namespace BestSeller
 {
     class Review
     {
@@ -22,13 +22,13 @@ namespace BestSellerHelper
     }
     class Book
     {
-        [JsonPropertyName("results.books.title")]
+        //[JsonPropertyName("results.books.title")]
         public string title { get; set; }
 
-        [JsonPropertyName("results.books.author")]
+        //[JsonPropertyName("results.books.author")]
         public string author { get; set; }
 
-        [JsonPropertyName("results.bestsellers_date")]
+        //[JsonPropertyName("results.bestsellers_date")]
         public string date { get; set; }
 
         public Book(string Name, string Author, string Date)
