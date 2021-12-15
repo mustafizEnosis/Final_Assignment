@@ -13,12 +13,12 @@ namespace BestSeller
     class BookWorker : Iworker
     {
 
-        public int max_book_length { get; set; } = int.MinValue;
-        public int max_author_length { get; set; } = int.MinValue;
+        public int MaxBookLength { get; set; } = int.MinValue;
+        public int MaxAuthorLength { get; set; } = int.MinValue;
 
-        public string filename { get; } = "output.txt";
+        public string FileName { get; } = "output.txt";
 
-        public List<Book> booksList = new List<Book>();
+        public List<Book> BooksList = new List<Book>();
 
         public async Task<List<string>> GetDataAsync(List<string> dates)
         {
@@ -117,10 +117,10 @@ namespace BestSeller
                             JsonElement title = book.GetProperty("title");
                             JsonElement author = book.GetProperty("author");
 
-                            max_book_length = Math.Max(max_book_length, title.GetString().Length);
-                            max_author_length = Math.Max(max_author_length, author.GetString().Length);
+                            MaxBookLength = Math.Max(MaxBookLength, title.GetString().Length);
+                            MaxAuthorLength = Math.Max(MaxAuthorLength, author.GetString().Length);
 
-                            booksList.Add(new Book(title.GetString(), author.GetString(), dateElement.GetString()));
+                            BooksList.Add(new Book(title.GetString(), author.GetString(), dateElement.GetString()));
                         }
 
                         //Console.WriteLine(title.GetString());
@@ -138,14 +138,14 @@ namespace BestSeller
                 try
                 {
 
-                    StreamWriter sw = new StreamWriter(filename);
+                    StreamWriter sw = new StreamWriter(FileName);
 
-                    sw.WriteLine("Book".PadRight(max_book_length + 1) + "Author".PadRight(max_author_length + 1) + "Date");
-                    sw.WriteLine("____".PadRight(max_book_length + 1) + "____".PadRight(max_author_length + 1) + "_____");
+                    sw.WriteLine("Book".PadRight(MaxBookLength + 1) + "Author".PadRight(MaxAuthorLength + 1) + "Date");
+                    sw.WriteLine("____".PadRight(MaxBookLength + 1) + "____".PadRight(MaxAuthorLength + 1) + "_____");
 
-                    for (int i = 0; i < booksList.Count; i++)
+                    for (int i = 0; i < BooksList.Count; i++)
                     {
-                        sw.WriteLine(booksList[i].title.PadRight(max_book_length + 1) + booksList[i].author.PadRight(max_author_length + 1) + booksList[i].date);
+                        sw.WriteLine(BooksList[i].title.PadRight(MaxBookLength + 1) + BooksList[i].author.PadRight(MaxAuthorLength + 1) + BooksList[i].date);
                     }
                     sw.Close();
                 }
@@ -154,7 +154,7 @@ namespace BestSeller
                     Console.WriteLine(e.Message.ToString());
                 }
 
-                return filename;
+                return FileName;
             });
         }
 

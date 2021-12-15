@@ -12,18 +12,18 @@ namespace BestSeller
 {
     class ReviewWorker : Iworker
     {
-        public List<Review> reviewsList = new List<Review>();
+        public List<Review> ReviewsList = new List<Review>();
 
         public Review.Type T { get; set; }
 
-        public string filename { get; } = "review.txt";
+        public string Filename { get; } = "review.txt";
 
         public ReviewWorker(Review.Type T)
         {
             this.T = T;
         }
 
-        string getUrl(string val)
+        string GetUrl(string val)
         {
             string url = $"https://api.nytimes.com/svc/books/v3/reviews.json?api-key={StaticInfo.API_KEY}";
             if (T == Review.Type.T_BOOK)
@@ -38,7 +38,7 @@ namespace BestSeller
             List<string> results = new List<string>();
             try
             {
-                var stringTask = from input in inputs select StaticInfo.client.GetStringAsync(getUrl(input));
+                var stringTask = from input in inputs select StaticInfo.client.GetStringAsync(GetUrl(input));
 
                 await Task.WhenAll(stringTask);
 
@@ -101,7 +101,7 @@ namespace BestSeller
                     foreach (JsonElement result in resultsElement.EnumerateArray())
                     {
                         JsonElement summaryElement = result.GetProperty("summary");
-                        reviewsList.Add(new Review(T, summaryElement.GetString()));
+                        ReviewsList.Add(new Review(T, summaryElement.GetString()));
                     }
                 });
 
@@ -121,13 +121,13 @@ namespace BestSeller
                 try
                 {
 
-                    StreamWriter sw = new StreamWriter(filename);
+                    StreamWriter sw = new StreamWriter(Filename);
 
-                    for (int i = 0; i < reviewsList.Count; i++)
+                    for (int i = 0; i < ReviewsList.Count; i++)
                     {
                         sw.WriteLine("Review {0}", i + 1);
                         sw.WriteLine("__________");
-                        sw.WriteLine(reviewsList[i].review);
+                        sw.WriteLine(ReviewsList[i].review);
                     }
                     sw.Close();
                 }
@@ -137,7 +137,7 @@ namespace BestSeller
                 }
 
 
-                return filename;
+                return Filename;
             });
         }
     }
